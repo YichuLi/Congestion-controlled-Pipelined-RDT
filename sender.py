@@ -1,6 +1,8 @@
 from socket import *
 import sys
 import threading
+from packet import Packet
+
 
 def checker():
     global emulator_addr
@@ -9,8 +11,7 @@ def checker():
     global timeout_ms
     global filename
     if len(sys.argv) != 6:
-        print(
-            'Usage: \'python sender.py <emulator address> <emulator port> <sender port> <timeout interval> <file name>\'')
+        print('Usage: \'python sender.py <emulator address> <emulator port> <sender port> <timeout> <file name>\'')
         sys.exit(1)
     try:
         emulator_addr = str(sys.argv[1])
@@ -43,6 +44,29 @@ def checker():
         print("filename must be a valid name.")
 
 
+def send_packet(packet):
+    global timestamp
+    sender_sock.sendto(packet.encode(), (emulator_addr, emulator_port))
+    seqnum_log.write("t=" + str(timestamp) + " " + str(packet.seqnum) + "\n")
+    timestamp += 1
+
+
+def timeout_function():
+    global window_size
+    lock.acquire()
+    if base_window == len(packets):
+        lock.release()
+        return
+
+    window_size = 1
+    if packets[0].seqnum == base_window:
+        send_packet(packets[0])
+        reset_timer = threading.Timer(timeout_sec, timeout_function)
+        reset_timer.start()
+    N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
+    lock.release()
+
+
 max_char = 500
 recv_size = 1024
 emulator_addr = ''
@@ -51,10 +75,50 @@ sender_port = 0
 timeout_ms = 0
 filename = ''
 checker()
+
+N_name = 'N.log'
+ack_name = 'ack.log'
+seqnum_name = 'seqnum.log'
+timestamp = 0
+timeout_sec = timeout_ms / 1000.0
+window_size = 0
+max_window_size = 10
+base_window = 0
+packets = []
+seqnum = 0
+sender_sock = socket(AF_INET, SOCK_DGRAM)
+
+with open(N_name, "w") as file:
+    file.write('')
+with open(ack_name, "w") as file:
+    file.write('')
+with open(seqnum_name, "w") as file:
+    file.write('')
+
+N_log = open(N_name, "a")
+ack_log = open(ack_name, "a")
+seqnum_log = open(seqnum_name, "a")
+
 try:
-    file_data = open(filename, 'r')
+    open(filename, 'r')
 except FileNotFoundError:
     exit(1)
+
+# provide mutual exclusion
 lock = threading.Lock()
 cv = threading.Condition(lock)
 
+N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
+timestamp += 1
+
+# read data from file, max char of a packet is 500
+file_data = open(filename, 'r')
+packet_data = file_data.read(max_char)
+while packet_data:
+    packets.append(Packet(1, seqnum % 32, len(packet_data), packet_data))
+    packet_data = file_data.read(max_char)
+    seqnum += 1
+file_data.close()
+
+timer = threading.Timer(timeout_sec, timeout_function)
+timer.start()
