@@ -51,7 +51,7 @@ def send_packet(packet):
     timestamp += 1
 
 
-def timeout_function():
+def timeout_function(index):
     global window_size
     lock.acquire()
     if base_window == len(packets):
@@ -59,9 +59,9 @@ def timeout_function():
         return
 
     window_size = 1
-    if packets[0].seqnum == base_window:
-        send_packet(packets[0])
-        reset_timer = threading.Timer(timeout_sec, timeout_function)
+    if index == base_window:
+        send_packet(packets[index])  # need to reconsider
+        reset_timer = threading.Timer(timeout_sec, timeout_function, args=[index])
         reset_timer.start()
     N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
     lock.release()
@@ -120,5 +120,10 @@ while packet_data:
     seqnum += 1
 file_data.close()
 
-timer = threading.Timer(timeout_sec, timeout_function)
-timer.start()
+# timer = threading.Timer(timeout_sec, timeout_function)
+# timer.start()
+timers = []
+
+timer = threading.Timer(1.0, timeout_function, args=[1])
+timers.append(timer)
+
