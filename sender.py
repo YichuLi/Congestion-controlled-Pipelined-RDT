@@ -67,6 +67,46 @@ def timeout_function(index):
     lock.release()
 
 
+def receive_ack():
+    global timestamp
+    global window_size
+    global ack_log
+    global base_window
+    receiver_sock = socket(AF_INET, SOCK_DGRAM)
+    receiver_sock.bind(('', sender_port))
+    while True:
+        packet_ack, addr = receiver_sock.recvfrom(recv_size)
+        packet_ack = Packet(packet_ack)
+        lock.acquire()
+        # When the packet is EOT
+        if packet_ack.typ == 2 and packet_ack.length == 0:
+            ack_log.write("t=" + str(timestamp) + " EOT\n")
+            timestamp += 1
+            lock.release()
+            break
+        # Otherwise, it is a SACK
+        seq_ack = packet_ack.seqnum
+        ack_log.write("t=" + str(timestamp) + " " + str(seq_ack) + "\n")
+        if seq_ack in not_acked_packets:
+            timers[seq_ack].cancel()
+            not_acked_packets.remove(seq_ack)
+            # retransmit the packet
+            if seq_ack == base_window:
+                base_window += 1
+                base_window = base_window % 32
+            if seq_ack != base_window and len(not_acked_packets) == 0:
+                base_window += window_size
+                base_window = base_window % 32
+            if window_size < max_window_size:
+                window_size += 1
+                N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
+            cv.notify()
+        timestamp += 1
+        lock.release()
+
+    receiver_sock.close()
+
+
 max_char = 500
 recv_size = 1024
 emulator_addr = ''
@@ -81,23 +121,25 @@ ack_name = 'ack.log'
 seqnum_name = 'seqnum.log'
 timestamp = 0
 timeout_sec = timeout_ms / 1000.0
-window_size = 0
+window_size = 1
 max_window_size = 10
 base_window = 0
 packets = []
+not_acked_packets = []
 seqnum = 0
+counter = 0
 sender_sock = socket(AF_INET, SOCK_DGRAM)
 
-with open(N_name, "w") as file:
+with open(seqnum_name, "w") as file:
     file.write('')
 with open(ack_name, "w") as file:
     file.write('')
-with open(seqnum_name, "w") as file:
+with open(N_name, "w") as file:
     file.write('')
 
-N_log = open(N_name, "a")
-ack_log = open(ack_name, "a")
 seqnum_log = open(seqnum_name, "a")
+ack_log = open(ack_name, "a")
+N_log = open(N_name, "a")
 
 try:
     open(filename, 'r')
@@ -120,10 +162,27 @@ while packet_data:
     seqnum += 1
 file_data.close()
 
-# timer = threading.Timer(timeout_sec, timeout_function)
-# timer.start()
-timers = []
+timers = {}
 
-timer = threading.Timer(1.0, timeout_function, args=[1])
-timers.append(timer)
+receive_ack_thread = threading.Thread(target=receive_ack)
+receive_ack_thread.start()
 
+while counter < len(packets):
+    target = counter + window_size
+    lock.acquire()
+    while counter < target and counter < len(packets):
+        send_packet(packets[counter])
+        i = counter % 32
+        timers[i] = threading.Timer(timeout_sec, timeout_function, args=[i])
+        not_acked_packets.append(i)
+        counter += 1
+    cv.wait()
+    lock.release()
+
+send_packet(Packet(2, seqnum % 32, 0, ''))
+receive_ack_thread.join()
+sender_sock.close()
+
+seqnum_log.close()
+ack_log.close()
+N_log.close()
