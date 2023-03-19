@@ -54,7 +54,7 @@ def send_packet(packet):
 def timeout_function(index):
     global window_size
     lock.acquire()
-    if base_window == len(packets):
+    if base_window >= len(packets):
         lock.release()
         return
 
@@ -80,6 +80,7 @@ def receive_ack():
         lock.acquire()
         # When the packet is EOT
         if packet_ack.typ == 2 and packet_ack.length == 0:
+            print("ack.log: t=" + str(timestamp) + " EOT\n")
             ack_log.write("t=" + str(timestamp) + " EOT\n")
             timestamp += 1
             lock.release()
@@ -87,6 +88,7 @@ def receive_ack():
         # Otherwise, it is a SACK
         seq_ack = packet_ack.seqnum
         ack_log.write("t=" + str(timestamp) + " " + str(seq_ack) + "\n")
+        print("ack.log: t=" + str(timestamp) + " " + str(seq_ack) + "\n")
         if seq_ack in not_acked_packets:
             timers[seq_ack].cancel()
             not_acked_packets.remove(seq_ack)
@@ -150,6 +152,7 @@ except FileNotFoundError:
 lock = threading.Lock()
 cv = threading.Condition(lock)
 
+# print("t=" + str(timestamp) + " " + str(window_size) + "\n")
 N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
 timestamp += 1
 
@@ -157,6 +160,8 @@ timestamp += 1
 file_data = open(filename, 'r')
 packet_data = file_data.read(max_char)
 while packet_data:
+    print(packet_data)
+    print("--------------------")
     packets.append(Packet(1, seqnum % 32, len(packet_data), packet_data))
     packet_data = file_data.read(max_char)
     seqnum += 1

@@ -77,7 +77,10 @@ receiver_sock = socket(AF_INET, SOCK_DGRAM)
 receiver_sock.bind(('', receiver_port))
 with open(arrival_name, "w") as file:
     file.write('')
+with open(filename, "w") as file:
+    file.write('')
 arrival_log = open(arrival_name, "a")
+received_file = open(filename, "a")
 
 while True:
     packet_receive, addr = receiver_sock.recvfrom(recv_size)
@@ -103,7 +106,7 @@ while True:
             while buffer[curr_seq] is not None:
                 curr_packet = buffer[curr_seq]
                 buffer[curr_seq] = None
-                arrival_log.write(str(curr_packet.data))
+                received_file.write(str(curr_packet.data))
                 curr_seq += 1
                 expected_seq += 1
     elif seq_is_within_last_10_seq():
