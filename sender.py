@@ -53,17 +53,19 @@ def send_packet(packet):
 
 def timeout_function(index):
     global window_size
+    global timestamp
     lock.acquire()
     if base_window >= len(packets):
         lock.release()
         return
 
     window_size = 1
-    if index == base_window:
-        send_packet(packets[index])  # need to reconsider
+    if index == base_window % 32:
+        send_packet(packets[base_window])  # need to resend
         reset_timer = threading.Timer(timeout_sec, timeout_function, args=[index])
         reset_timer.start()
     N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
+    timestamp += 1
     lock.release()
 
 
@@ -92,13 +94,11 @@ def receive_ack():
         if seq_ack in not_acked_packets:
             timers[seq_ack].cancel()
             not_acked_packets.remove(seq_ack)
-            # retransmit the packet
-            if seq_ack == base_window:
+            # resend the packet
+            if seq_ack == base_window % 32:
                 base_window += 1
-                base_window = base_window % 32
-            if seq_ack != base_window and len(not_acked_packets) == 0:
+            elif len(not_acked_packets) == 0:
                 base_window += window_size
-                base_window = base_window % 32
             if window_size < max_window_size:
                 window_size += 1
                 N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
@@ -128,6 +128,7 @@ max_window_size = 10
 base_window = 0
 packets = []
 not_acked_packets = []
+sent_packets = []
 seqnum = 0
 counter = 0
 sender_sock = socket(AF_INET, SOCK_DGRAM)
@@ -172,14 +173,19 @@ timers = {}
 receive_ack_thread = threading.Thread(target=receive_ack)
 receive_ack_thread.start()
 
-while counter < len(packets):
-    target = counter + window_size
+while base_window < len(packets):
+    target = base_window + window_size
     lock.acquire()
+    counter = base_window
+    # check if the window is full
     while counter < target and counter < len(packets):
-        send_packet(packets[counter])
-        i = counter % 32
-        timers[i] = threading.Timer(timeout_sec, timeout_function, args=[i])
-        not_acked_packets.append(i)
+        if counter not in sent_packets:
+            send_packet(packets[counter])
+            i = counter % 32
+            timers[i] = threading.Timer(timeout_sec, timeout_function, args=[i])
+            timers[i].start()
+            sent_packets.append(counter)
+            not_acked_packets.append(i)
         counter += 1
     cv.wait()
     lock.release()
