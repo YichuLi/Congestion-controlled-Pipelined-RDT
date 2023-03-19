@@ -9,7 +9,7 @@ def checker():
     global receiver_port
     global filename
     if len(sys.argv) != 5:
-        print('Usage: \'python receiver.py <hostname> <emulator port> <receiver port> <file name>\'')
+        print('Usage: \'python receiver.py <hostname> <emulator_port> <receiver_port> <file_name>\'')
         sys.exit(1)
     try:
         hostname_emulator = str(sys.argv[1])
