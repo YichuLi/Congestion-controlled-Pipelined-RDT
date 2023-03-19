@@ -11,7 +11,7 @@ def checker():
     global timeout_ms
     global filename
     if len(sys.argv) != 6:
-        print('Usage: \'python sender.py <emulator_address> <emulator_port> <sender_port> <timeout> <file_name>\'')
+        print('Usage: \'./sender.sh <emulator_address> <emulator_port> <sender_port> <timeout> <file_name>\'')
         sys.exit(1)
     try:
         emulator_addr = str(sys.argv[1])

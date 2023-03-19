@@ -12,4 +12,4 @@
 #    $5: <file_name>
 
 #For Python implementation
-python sender.py $1 $2 $3 $4 "$5"
+python3 sender.py $1 $2 $3 $4 "$5"

@@ -9,7 +9,7 @@ def checker():
     global receiver_port
     global filename
     if len(sys.argv) != 5:
-        print('Usage: \'python receiver.py <hostname> <emulator_port> <receiver_port> <file_name>\'')
+        print('Usage: \'./receiver.sh <hostname> <emulator_port> <receiver_port> <file_name>\'')
         sys.exit(1)
     try:
         hostname_emulator = str(sys.argv[1])
@@ -24,7 +24,7 @@ def checker():
         print("emulator_port must be between [1024, 65535].")
         sys.exit(1)
     try:
-        receiver_port = int(sys.argv[2])
+        receiver_port = int(sys.argv[3])
     except ValueError:
         print("emulator_port must be an integer.")
         sys.exit(1)
@@ -32,7 +32,7 @@ def checker():
         print("emulator_port must be between [1024, 65535].")
         sys.exit(1)
     try:
-        filename = str(sys.argv[5])
+        filename = str(sys.argv[4])
     except ValueError:
         print("filename must be a valid name.")
 

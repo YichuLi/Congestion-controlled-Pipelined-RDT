@@ -11,5 +11,5 @@
 #    $4: <file_name>
 
 #For Python implementation
-python receiver.py $1 $2 $3 "$4"
+python3 receiver.py $1 $2 $3 "$4"
 
