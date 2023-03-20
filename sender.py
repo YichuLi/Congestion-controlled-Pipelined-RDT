@@ -104,11 +104,14 @@ def receive_ack():
             print("received: " + str(seq_ack))
             timers[seq_ack].cancel()
             not_acked_packets.remove(seq_ack)
+            # sent_packets.remove(seq_ack)
             # acked_packets.append(seq_ack)
             # resend the packet
             if seq_ack == base_window % 32:
+                sent_packets.remove(base_window)
                 base_window += 1
                 while base_window % 32 in sent_packets and base_window % 32 not in not_acked_packets:
+                    sent_packets.remove(base_window)
                     base_window += 1
             # elif len(not_acked_packets) == 0:
             #     base_window += window_size
@@ -176,8 +179,8 @@ timestamp += 1
 file_data = open(filename, 'r')
 packet_data = file_data.read(max_char)
 while packet_data:
-    print(packet_data)
-    print("--------------------")
+    # print(packet_data)
+    # print("--------------------")
     packets.append(Packet(1, seqnum % 32, len(packet_data), packet_data))
     packet_data = file_data.read(max_char)
     seqnum += 1
@@ -187,6 +190,7 @@ timers = {}
 
 receive_ack_thread = threading.Thread(target=receive_ack)
 receive_ack_thread.start()
+print(len(packets))
 
 while base_window < len(packets):
     target = base_window + window_size
@@ -198,7 +202,12 @@ while base_window < len(packets):
             if counter in wait_to_retransmit_packets:
                 wait_to_retransmit_packets.remove(counter)
             send_packet(packets[counter])
+            print("sent_packets:")
             print(sent_packets)
+            print("not_acked_packets:")
+            print(not_acked_packets)
+            print("wait_to_retransmit_packets:")
+            print(wait_to_retransmit_packets)
             print("send: " + str(counter))
             print("window size:" + str(window_size))
             i = counter % 32
