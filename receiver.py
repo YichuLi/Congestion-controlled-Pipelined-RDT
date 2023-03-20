@@ -46,10 +46,13 @@ def seq_is_within_window():
     if margin > expected_seq:
         if expected_seq <= curr_seq < margin:
             return True
+        else:
+            return False
     else:
         if expected_seq <= curr_seq or margin > curr_seq:
             return True
-    return False
+        else:
+            return False
 
 
 def seq_is_within_last_10_seq():
@@ -57,10 +60,13 @@ def seq_is_within_last_10_seq():
     if margin < expected_seq:
         if margin < curr_seq <= expected_seq:
             return True
+        else:
+            return False
     else:
         if curr_seq <= expected_seq or curr_seq > margin:
             return True
-    return False
+        else:
+            return False
 
 
 hostname_emulator = ''
@@ -86,12 +92,14 @@ while True:
     packet_receive, addr = receiver_sock.recvfrom(recv_size)
     packet_receive = Packet(packet_receive)
     curr_seq = int(packet_receive.seqnum)
+    # print((str(curr_seq) + "\n"))
 
     # the packet is an EOT packet
     if packet_receive.typ == 2:
         EOT_packet = Packet(2, curr_seq, 0, '')
         send_packet(EOT_packet)
         arrival_log.write("EOT\n")
+        print("EOT\n")
         arrival_log.close()
         receiver_sock.close()
         exit()
@@ -99,16 +107,19 @@ while True:
         SACK_packet = Packet(0, curr_seq, 0, '')
         send_packet(SACK_packet)
         arrival_log.write(str(curr_seq) + "\n")
+        print((str(curr_seq) + "\n"))
         if buffer[curr_seq] is None:
             buffer[curr_seq] = packet_receive
         # the received packet is at the base of the window
-        if curr_seq == expected_seq:
+        if expected_seq == curr_seq:
             while buffer[curr_seq] is not None:
                 curr_packet = buffer[curr_seq]
                 buffer[curr_seq] = None
                 received_file.write(str(curr_packet.data))
                 curr_seq += 1
+                curr_seq = curr_seq % 32
                 expected_seq += 1
+                expected_seq = expected_seq % 32
     elif seq_is_within_last_10_seq():
         SACK_packet = Packet(0, curr_seq, 0, '')
         send_packet(SACK_packet)

@@ -17,6 +17,7 @@ def checker():
         emulator_addr = str(sys.argv[1])
     except ValueError:
         print("emulator_addr must be localhost or IP address format.")
+        sys.exit(1)
     try:
         emulator_port = int(sys.argv[2])
     except ValueError:
@@ -42,6 +43,7 @@ def checker():
         filename = str(sys.argv[5])
     except ValueError:
         print("filename must be a valid name.")
+        sys.exit(1)
 
 
 def send_packet(packet):
@@ -55,15 +57,19 @@ def timeout_function(index):
     global window_size
     global timestamp
     lock.acquire()
+    print("timeout:" + str(index))
     if base_window >= len(packets):
         lock.release()
         return
 
     window_size = 1
+    print("shrink window size to 1")
     if index == base_window % 32:
         send_packet(packets[base_window])  # need to resend
-        reset_timer = threading.Timer(timeout_sec, timeout_function, args=[index])
-        reset_timer.start()
+        timers[index] = threading.Timer(timeout_sec, timeout_function, args=[index])
+        timers[index].start()
+    else:
+        wait_to_retransmit_packets.append(index)
     N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
     timestamp += 1
     lock.release()
@@ -87,18 +93,25 @@ def receive_ack():
             timestamp += 1
             lock.release()
             break
+        if packet_ack.typ == 1:
+            print("Wrong format")
+            exit()
         # Otherwise, it is a SACK
         seq_ack = packet_ack.seqnum
         ack_log.write("t=" + str(timestamp) + " " + str(seq_ack) + "\n")
         print("ack.log: t=" + str(timestamp) + " " + str(seq_ack) + "\n")
         if seq_ack in not_acked_packets:
+            print("received: " + str(seq_ack))
             timers[seq_ack].cancel()
             not_acked_packets.remove(seq_ack)
+            # acked_packets.append(seq_ack)
             # resend the packet
             if seq_ack == base_window % 32:
                 base_window += 1
-            elif len(not_acked_packets) == 0:
-                base_window += window_size
+                while base_window % 32 in sent_packets and base_window % 32 not in not_acked_packets:
+                    base_window += 1
+            # elif len(not_acked_packets) == 0:
+            #     base_window += window_size
             if window_size < max_window_size:
                 window_size += 1
                 N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
@@ -129,6 +142,8 @@ base_window = 0
 packets = []
 not_acked_packets = []
 sent_packets = []
+acked_packets = []
+wait_to_retransmit_packets = []
 seqnum = 0
 counter = 0
 sender_sock = socket(AF_INET, SOCK_DGRAM)
@@ -179,13 +194,20 @@ while base_window < len(packets):
     counter = base_window
     # check if the window is full
     while counter < target and counter < len(packets):
-        if counter not in sent_packets:
+        if counter not in sent_packets or counter in wait_to_retransmit_packets:
+            if counter in wait_to_retransmit_packets:
+                wait_to_retransmit_packets.remove(counter)
             send_packet(packets[counter])
+            print(sent_packets)
+            print("send: " + str(counter))
+            print("window size:" + str(window_size))
             i = counter % 32
             timers[i] = threading.Timer(timeout_sec, timeout_function, args=[i])
             timers[i].start()
-            sent_packets.append(counter)
-            not_acked_packets.append(i)
+            if counter not in sent_packets:
+                sent_packets.append(counter)
+            if counter not in not_acked_packets:
+                not_acked_packets.append(i)
         counter += 1
     cv.wait()
     lock.release()
