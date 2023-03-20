@@ -50,7 +50,7 @@ def send_packet(packet):
     global timestamp
     sender_sock.sendto(packet.encode(), (emulator_addr, emulator_port))
     seqnum_log.write("t=" + str(timestamp) + " " + str(packet.seqnum) + "\n")
-    timestamp += 1
+    # timestamp += 1
 
 
 def timeout_function(index):
@@ -59,18 +59,22 @@ def timeout_function(index):
     lock.acquire()
     print("timeout:" + str(index))
     if base_window >= len(packets):
+        print("base_window >= len(packets)")
         lock.release()
         return
 
     window_size = 1
     print("shrink window size to 1")
+    N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
     if index == base_window % 32:
+        print("resend " + str(index))
+        print("packet: " + str(base_window))
         send_packet(packets[base_window])  # need to resend
         timers[index] = threading.Timer(timeout_sec, timeout_function, args=[index])
         timers[index].start()
     else:
         wait_to_retransmit_packets.append(index)
-    N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
+    # N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
     timestamp += 1
     lock.release()
 
@@ -108,10 +112,10 @@ def receive_ack():
             # acked_packets.append(seq_ack)
             # resend the packet
             if seq_ack == base_window % 32:
-                sent_packets.remove(base_window)
+                sent_packets.remove(seq_ack)
                 base_window += 1
                 while base_window % 32 in sent_packets and base_window % 32 not in not_acked_packets:
-                    sent_packets.remove(base_window)
+                    sent_packets.remove(base_window % 32)
                     base_window += 1
             # elif len(not_acked_packets) == 0:
             #     base_window += window_size
@@ -198,10 +202,11 @@ while base_window < len(packets):
     counter = base_window
     # check if the window is full
     while counter < target and counter < len(packets):
-        if counter not in sent_packets or counter in wait_to_retransmit_packets:
-            if counter in wait_to_retransmit_packets:
-                wait_to_retransmit_packets.remove(counter)
+        if counter % 32 not in sent_packets or counter % 32 in wait_to_retransmit_packets:
+            if counter % 32 in wait_to_retransmit_packets:
+                wait_to_retransmit_packets.remove(counter % 32)
             send_packet(packets[counter])
+            timestamp += 1
             print("sent_packets:")
             print(sent_packets)
             print("not_acked_packets:")
@@ -213,15 +218,16 @@ while base_window < len(packets):
             i = counter % 32
             timers[i] = threading.Timer(timeout_sec, timeout_function, args=[i])
             timers[i].start()
-            if counter not in sent_packets:
-                sent_packets.append(counter)
-            if counter not in not_acked_packets:
+            if i not in sent_packets:
+                sent_packets.append(i)
+            if i not in not_acked_packets:
                 not_acked_packets.append(i)
         counter += 1
     cv.wait()
     lock.release()
 
 send_packet(Packet(2, seqnum % 32, 0, ''))
+timestamp += 1
 receive_ack_thread.join()
 sender_sock.close()
 

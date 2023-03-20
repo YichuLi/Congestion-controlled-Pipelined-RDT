@@ -42,28 +42,28 @@ def send_packet(packet):
 
 
 def seq_is_within_window():
-    margin = (expected_seq + 10) % 32
-    if margin > expected_seq:
-        if expected_seq <= curr_seq < margin:
+    margin = (base_seq + 10) % 32
+    if margin > base_seq % 32:
+        if base_seq % 32 <= curr_seq < margin:
             return True
         else:
             return False
     else:
-        if expected_seq <= curr_seq or margin > curr_seq:
+        if base_seq % 32 <= curr_seq or margin > curr_seq:
             return True
         else:
             return False
 
 
 def seq_is_within_last_10_seq():
-    margin = (expected_seq - 10) % 32
-    if margin < expected_seq:
-        if margin < curr_seq <= expected_seq:
+    margin = (base_seq - 10) % 32
+    if margin < base_seq % 32:
+        if margin < curr_seq <= base_seq % 32:
             return True
         else:
             return False
     else:
-        if curr_seq <= expected_seq or curr_seq > margin:
+        if curr_seq <= base_seq % 32 or curr_seq > margin:
             return True
         else:
             return False
@@ -77,7 +77,7 @@ checker()
 arrival_name = 'arrival.log'
 recv_size = 1024
 buffer = [None] * 32
-expected_seq = 0
+base_seq = 0
 curr_seq = 0
 receiver_sock = socket(AF_INET, SOCK_DGRAM)
 receiver_sock.bind(('', receiver_port))
@@ -90,6 +90,7 @@ received_file = open(filename, "a")
 
 while True:
     packet_receive, addr = receiver_sock.recvfrom(recv_size)
+    # print(buffer)
     packet_receive = Packet(packet_receive)
     curr_seq = int(packet_receive.seqnum)
     # print((str(curr_seq) + "\n"))
@@ -111,15 +112,21 @@ while True:
         if buffer[curr_seq] is None:
             buffer[curr_seq] = packet_receive
         # the received packet is at the base of the window
-        if expected_seq == curr_seq:
+        if base_seq % 32 == curr_seq:
             while buffer[curr_seq] is not None:
                 curr_packet = buffer[curr_seq]
                 buffer[curr_seq] = None
                 received_file.write(str(curr_packet.data))
                 curr_seq += 1
                 curr_seq = curr_seq % 32
-                expected_seq += 1
-                expected_seq = expected_seq % 32
+                base_seq += 1
+                base_seq = base_seq % 32
+                print("base:" + str(base_seq))
+                print("curr_seq:" + str(curr_seq))
     elif seq_is_within_last_10_seq():
         SACK_packet = Packet(0, curr_seq, 0, '')
         send_packet(SACK_packet)
+    else:
+        print("discard: " + str(curr_seq))
+        # print("base:" + str(base_seq))
+        # print("curr_seq:" + str(curr_seq))
