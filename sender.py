@@ -56,18 +56,13 @@ def timeout_function(index):
     global window_size
     global timestamp
     lock.acquire()
-    # print("timeout:" + str(index))
     if base_window >= len(packets):
-        # print("base_window >= len(packets)")
         lock.release()
         return
 
     window_size = 1
-    # print("shrink window size to 1")
     N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
     if index == base_window % 32:
-        # print("resend " + str(index))
-        # print("packet: " + str(base_window))
         send_packet(packets[base_window])  # need to resend
         timers[index] = threading.Timer(timeout_sec, timeout_function, args=[index])
         timers[index].start()
@@ -203,14 +198,6 @@ while base_window < len(packets):
                 wait_to_retransmit_packets.remove(counter % 32)
             send_packet(packets[counter])
             timestamp += 1
-            # print("sent_packets:")
-            # print(sent_packets)
-            # print("not_acked_packets:")
-            # print(not_acked_packets)
-            # print("wait_to_retransmit_packets:")
-            # print(wait_to_retransmit_packets)
-            # print("send: " + str(counter))
-            # print("window size:" + str(window_size))
             i = counter % 32
             timers[i] = threading.Timer(timeout_sec, timeout_function, args=[i])
             timers[i].start()
