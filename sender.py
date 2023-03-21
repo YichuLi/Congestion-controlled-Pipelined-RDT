@@ -50,25 +50,24 @@ def send_packet(packet):
     global timestamp
     sender_sock.sendto(packet.encode(), (emulator_addr, emulator_port))
     seqnum_log.write("t=" + str(timestamp) + " " + str(packet.seqnum) + "\n")
-    # timestamp += 1
 
 
 def timeout_function(index):
     global window_size
     global timestamp
     lock.acquire()
-    print("timeout:" + str(index))
+    # print("timeout:" + str(index))
     if base_window >= len(packets):
-        print("base_window >= len(packets)")
+        # print("base_window >= len(packets)")
         lock.release()
         return
 
     window_size = 1
-    print("shrink window size to 1")
+    # print("shrink window size to 1")
     N_log.write("t=" + str(timestamp) + " " + str(window_size) + "\n")
     if index == base_window % 32:
-        print("resend " + str(index))
-        print("packet: " + str(base_window))
+        # print("resend " + str(index))
+        # print("packet: " + str(base_window))
         send_packet(packets[base_window])  # need to resend
         timers[index] = threading.Timer(timeout_sec, timeout_function, args=[index])
         timers[index].start()
@@ -92,7 +91,7 @@ def receive_ack():
         lock.acquire()
         # When the packet is EOT
         if packet_ack.typ == 2 and packet_ack.length == 0:
-            print("ack.log: t=" + str(timestamp) + " EOT\n")
+            # print("ack.log: t=" + str(timestamp) + " EOT\n")
             ack_log.write("t=" + str(timestamp) + " EOT\n")
             timestamp += 1
             lock.release()
@@ -103,9 +102,9 @@ def receive_ack():
         # Otherwise, it is a SACK
         seq_ack = packet_ack.seqnum
         ack_log.write("t=" + str(timestamp) + " " + str(seq_ack) + "\n")
-        print("ack.log: t=" + str(timestamp) + " " + str(seq_ack) + "\n")
+        # print("ack.log: t=" + str(timestamp) + " " + str(seq_ack) + "\n")
         if seq_ack in not_acked_packets:
-            print("received: " + str(seq_ack))
+            # print("received: " + str(seq_ack))
             timers[seq_ack].cancel()
             not_acked_packets.remove(seq_ack)
             # sent_packets.remove(seq_ack)
@@ -183,8 +182,6 @@ timestamp += 1
 file_data = open(filename, 'r')
 packet_data = file_data.read(max_char)
 while packet_data:
-    # print(packet_data)
-    # print("--------------------")
     packets.append(Packet(1, seqnum % 32, len(packet_data), packet_data))
     packet_data = file_data.read(max_char)
     seqnum += 1
@@ -194,7 +191,6 @@ timers = {}
 
 receive_ack_thread = threading.Thread(target=receive_ack)
 receive_ack_thread.start()
-print(len(packets))
 
 while base_window < len(packets):
     target = base_window + window_size
@@ -207,14 +203,14 @@ while base_window < len(packets):
                 wait_to_retransmit_packets.remove(counter % 32)
             send_packet(packets[counter])
             timestamp += 1
-            print("sent_packets:")
-            print(sent_packets)
-            print("not_acked_packets:")
-            print(not_acked_packets)
-            print("wait_to_retransmit_packets:")
-            print(wait_to_retransmit_packets)
-            print("send: " + str(counter))
-            print("window size:" + str(window_size))
+            # print("sent_packets:")
+            # print(sent_packets)
+            # print("not_acked_packets:")
+            # print(not_acked_packets)
+            # print("wait_to_retransmit_packets:")
+            # print(wait_to_retransmit_packets)
+            # print("send: " + str(counter))
+            # print("window size:" + str(window_size))
             i = counter % 32
             timers[i] = threading.Timer(timeout_sec, timeout_function, args=[i])
             timers[i].start()

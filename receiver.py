@@ -100,7 +100,7 @@ while True:
         EOT_packet = Packet(2, curr_seq, 0, '')
         send_packet(EOT_packet)
         arrival_log.write("EOT\n")
-        print("EOT\n")
+        # print("EOT\n")
         arrival_log.close()
         receiver_sock.close()
         exit()
@@ -108,7 +108,7 @@ while True:
         SACK_packet = Packet(0, curr_seq, 0, '')
         send_packet(SACK_packet)
         arrival_log.write(str(curr_seq) + "\n")
-        print((str(curr_seq) + "\n"))
+        # print((str(curr_seq) + "\n"))
         if buffer[curr_seq] is None:
             buffer[curr_seq] = packet_receive
         # the received packet is at the base of the window
@@ -121,12 +121,13 @@ while True:
                 curr_seq = curr_seq % 32
                 base_seq += 1
                 base_seq = base_seq % 32
-                print("base:" + str(base_seq))
-                print("curr_seq:" + str(curr_seq))
+                # print("base:" + str(base_seq))
+                # print("curr_seq:" + str(curr_seq))
     elif seq_is_within_last_10_seq():
         SACK_packet = Packet(0, curr_seq, 0, '')
         send_packet(SACK_packet)
-    else:
-        print("discard: " + str(curr_seq))
+    # Otherwise just discard this packet
+    # else:
+        # print("discard: " + str(curr_seq))
         # print("base:" + str(base_seq))
         # print("curr_seq:" + str(curr_seq))
